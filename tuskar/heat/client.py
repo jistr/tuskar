@@ -136,3 +136,9 @@ class HeatClient(object):
         #return false if 404
         except HeatStackNotFound:
             return False
+
+    def get_output(self, stack_id, output_name):
+        stack = self.connection.stacks.get(stack_id=stack_id)
+        for output in stack.to_dict().get('outputs', []):
+            if output['output_key'] == output_name:
+                return output['output_value']

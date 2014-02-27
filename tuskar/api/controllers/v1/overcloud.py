@@ -20,7 +20,8 @@ from wsmeext import pecan as wsme_pecan
 from tuskar.api.controllers.v1 import models
 from tuskar.common import exception
 from tuskar.heat.client import HeatClient
-import tuskar.heat.template_tools as template_tools
+from tuskar.heat import template_tools
+from tuskar.cloud_config import overcloud_init
 
 LOG = logging.getLogger(__name__)
 
@@ -125,10 +126,19 @@ def process_stack(attributes, counts, create=False):
             raise exception.HeatStackUpdateFailed(unicode(e))
 
 
+def get_keystone_endpoint(overcloud):
+    heat_client = HeatClient()
+    keystone_endpoint = heat_client.get_output(overcloud.stack_id, 'KeystoneURL')
+    if not keystone_endpoint:
+        raise KeystoneEndpointNotFound(overcloud_name=overcloud.name)
+
+    return keystone_endpoint
+
+
 class OvercloudsController(rest.RestController):
     """REST controller for the Overcloud class."""
 
-    _custom_actions = {'template_get': ['GET']}
+    _custom_actions = {'template_get': ['GET'], 'initialize': ['POST']}
 
     # FIXME(lsmola) this is for debugging purposes only, remove before I3
     @pecan.expose()
@@ -282,3 +292,16 @@ class OvercloudsController(rest.RestController):
         transfer_overclouds = [models.Overcloud.from_db_model(o)
                                for o in overclouds]
         return transfer_overclouds
+
+    @wsme_pecan.wsexpose(None, int)
+    def initialize(self, overcloud_id):
+        """Initialize a deployed overcloud."""
+        # FIXME(jistr) this is not too RESTful, but it should
+        # eventually be removed - it should be either done by Heat or
+        # it should be made part of the overcloud create action once
+        # Tuskar API has some workflow engine
+        LOG.debug('Initializing overcloud with ID: %s' % overcloud_id)
+        overcloud = pecan.request.dbapi.get_overcloud_by_id(overcloud_id)
+
+        keystone_endpoint = get_keystone_endpoint(overcloud)
+        overcloud_init.initialize(overcloud, keystone_endpoint)

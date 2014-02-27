@@ -177,6 +177,11 @@ class StackNotFound(NotFound):
     message = _("The Stack for this Overcloud can't be found.")
 
 
+class KeystoneEndpointNotFound(NotFound):
+    message = _("Keystone endpoint for Overcloud with name %(name)s "
+                "could not be found.")
+
+
 class StackAlreadyCreated(DuplicateEntry):
     message = _("The Stack for this Overcloud already exists.")
 
